@@ -123,3 +123,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+#dont keep data dont keep graphs
+#data & graph folders (keep structure, not files in src) 
+/graphs/*
+!/graphs/.keep
+/data/*
+!/data/.keep
+#workspace
+
+quick_comparative_analyses.code-workspace
