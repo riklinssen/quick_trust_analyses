@@ -34,7 +34,7 @@ files['name'] = files.cntry + '_'+files.toc
 cntrs = []
 trustvars = []
 for f, cntry in zip(filelist, files.name):
-    checkcols = pd.read_stata(Path(f))
+    checkcols = pd.read_stata(Path(f), convert_categoricals=False)
     cntrs.append(cntry)
     cols = [c for c in checkcols.columns if 'cctrust' in c or 'period' in c]
     cols2 = [c for c in cols if 'out_' not in c]
@@ -45,9 +45,9 @@ dataoverview = dict(zip(cntrs, trustvars))
 frames = {}
 
 for f, cntry in zip(filelist, files.name):
-    df = pd.read_stata(Path(f), columns=list(dataoverview[cntry]))
+    df = pd.read_stata(Path(f, convertcategoricals=False), columns=list(dataoverview[cntry]))
     # keep endline only
-    if cntry != 'Myanmar_r2f':  # mya has endline data only
+    if cntry not in  ['Myanmar_r2f','Cambodia_r2f']:    # mya has endline data only
         ids = df[df['period'].cat.codes == 0].index
         df.drop(ids, inplace=True)
    # rename Burundi federal government.
@@ -59,7 +59,6 @@ for f, cntry in zip(filelist, files.name):
 trustitems = [
     'cctrust_localgov',
     'cctrust_centralgov',
-    'cctrust_taxauth',
     'cctrust_bigcomp',
     'cctrust_internngo',
     'cctrust_localcso',
@@ -102,22 +101,94 @@ for cntry in cntrs:
     for item, d in zip(trustitems,dums):
         df[d]=df[item].map({1: 0, 2:0, 3: 1, 4: 1, np.nan:np.nan})
     frames_d[cntry] = df.loc[:,dums]
-
+#make set with total
 totals=pd.DataFrame(columns=dums)
 for cntry in cntrs:
     totrow=pd.Series(frames_d[cntry].mean(), name=cntry)
     totals=totals.append(totrow)
 
+totals.to_excel(data_path/'often_alwaystrust.xls')
+
 #sortorder
 #check which insitutes have highest trust on average
-sorteddf=pd.DataFrame(totals.mean(), columns=['totalavg'])
-orderitems=list(sorteddf.sort_values(by='totalavg', ascending=False).index)
+sorteditems=list(pd.DataFrame(totals.mean(), columns=['itemavg']).sort_values(by='itemavg', ascending=False).index)
+sortedcntry=list(pd.DataFrame(totals.mean(axis=1), columns=['cntryavg']).sort_values(by='cntryavg', ascending=False).index)
+
+#prep some vars to loop over
+ncols=len(sortedcntry)
+nrows=len(sorteditems)
+
+cntrytitles=dict(zip(sortedcntry,['Niger \n(c & f)',
+ 'Uganda\n(f4d)',
+ 'Uganda\n(r2f)',
+ 'Niger\n(r2f)',
+ 'Myanmar\n(r2f)',
+ 'OPT\n(f4d)',
+ 'Burundi\n(r2f)']))
+
+itemtitles=dict(zip(
+    sorteditems,
+    ["traditional\nleaders",
+    "religious\nleaders",
+    "comm. \nvolunteers",
+    "local cso's",
+    "international\nngo's",
+    "local gov.",
+    "central gov.",
+    "traditional\n&\nrelig. leaders",
+    "media",
+    "big\ncompanies"]))
+
+#make a list which values to plot and where there's no data. 
+#notna the df, take values, ravel these values, then enumerate so we have indices corresponding with plot locs in plotgrid 
+to_plot=totals.notna().values.ravel()
+#list of items
+itemlist1=[[i] * 7 for i in sorteditems]
+#flatten
+itemlist=[item for sorteditems in itemlist1 for item in sorteditems]
+#list of cntrys
+
+cntrlist=sortedcntry*nrows
+
+#anno options for no data. 
+anno_opts = dict(xy=(0.5, 0.5), xycoords='axes fraction',
+                 va='center', ha='center')
 
 
-fig, ax=plt.subplots(nrows=len(cntrs),ncols=len(orderitems), sharey='row', sharex='col')
+fig, ax=plt.subplots(nrows=nrows, ncols=ncols, figsize=(20,20))
+#axs=all axes
+axs=fig.axes
+#toprow.
+toprow=axs[:ncols]
+for i, title in enumerate(cntrytitles.values()):
+    print(i, title)   
+    toprow[i].set_title(title, fontsize='medium', rotation=90, loc='center')
+#loop over plot indices, in cntrys in rows
+for i, (toplot, item, cntry),  in enumerate(zip(to_plot, itemlist, cntrlist)):
+    if toplot==False: 
+        axs[i].annotate('No Data', **anno_opts)
+    else: 
+        axs[i].barh(y=0.5, width=totals.at[cntry,item], height=0.2)
+        axs[i].set_xlim([0,1])
+        axs[i].xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
+        #axs[i].annotate(s=(item cntry), **anno_opts)
+    axs[i].yaxis.set_visible(False)
+    axs[i].xaxis.set_visible(False)
+#first columns
+firstcols=[axs[i] for i in [ i for i in range(0,(nrows*ncols), ncols)]]
+for ax, title in zip(firstcols, itemtitles.values()):
+    ax.set_ylabel(title, fontsize='medium', rotation=0, labelpad=20)
+    ax.yaxis.set_label_coords(-0.5,0.3)
+    ax.yaxis.set_visible(True)
+    ax.set_yticklabels("")
 
-fig.show()
- 
+plt.show()
+
+
+fig, ax=plt.subplots(nrows=1, ncols=ncols, figsize=(10,10), sharey='row', sharex='col')
+
+plt.show()
+
 
 # for cntry in cntrs:
 #     for item in dums:
