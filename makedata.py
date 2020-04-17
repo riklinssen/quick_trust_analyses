@@ -4,7 +4,7 @@ import os
 import re
 import getpass
 from pathlib import Path, PureWindowsPath, WindowsPath
-
+import statsmodels.stats.api as sms
 import matplotlib.cm
 import matplotlib.dates as mdates
 import matplotlib.gridspec as gridspec
@@ -34,7 +34,7 @@ files['name'] = files.cntry + '_'+files.toc
 cntrs = []
 trustvars = []
 for f, cntry in zip(filelist, files.name):
-    checkcols = pd.read_stata(Path(f), convert_categoricals=False)
+    checkcols = pd.read_stata(Path(f))
     cntrs.append(cntry)
     cols = [c for c in checkcols.columns if 'cctrust' in c or 'period' in c]
     cols2 = [c for c in cols if 'out_' not in c]
@@ -45,16 +45,28 @@ dataoverview = dict(zip(cntrs, trustvars))
 frames = {}
 
 for f, cntry in zip(filelist, files.name):
-    df = pd.read_stata(Path(f, convertcategoricals=False), columns=list(dataoverview[cntry]))
+    df = pd.read_stata(Path(f), columns=list(dataoverview[cntry]))
     # keep endline only
     if cntry not in  ['Myanmar_r2f','Cambodia_r2f']:    # mya has endline data only
         ids = df[df['period'].cat.codes == 0].index
-        df.drop(ids, inplace=True)
+        df.drop(ids, inplace=True)      
    # rename Burundi federal government.
     if cntry == 'Burundi_r2f':
         df = df.rename(columns={'cctrust_federalgov': 'cctrust_centralgov'})
+    # rename cultural leaders in Uganda drop empty cols for tradrelileaders
+    if 'Uganda' in cntry:
+        df=df.rename(columns={'cctrust_cultleader':'cctrust_tradleader'})
+        df=df.drop(columns='cctrust_tradrelileader')
+        
+    frames[cntry]=df
 
-    frames[cntry] = df
+#cambodia gets \t after each item remove that: 
+for c in dataoverview['Cambodia_r2f']: 
+    print(frames['Cambodia_r2f'][c].value_counts(dropna=False))
+    frames['Cambodia_r2f'][c]=frames['Cambodia_r2f'][c].str.replace("\t", "")
+    print(frames['Cambodia_r2f'][c].value_counts(dropna=False))
+
+
 
 trustitems = [
     'cctrust_localgov',
@@ -71,11 +83,7 @@ trustitems = [
 for cntry in cntrs:
     for item in trustitems:
         try:
-            print('-------', 'ORIGINAL', '-------')
-            print('-------', cntry, '-------')
-            print('-------', item, '-------')
             #print('iscat:', frames[cntry][item].dtype.name=='category')
-            print(frames[cntry][item].value_counts(dropna=False))
             frames[cntry][item] = frames[cntry][item].map(
                 {
                     '1. All the time': 4,
@@ -85,59 +93,119 @@ for cntry in cntrs:
                     'All the time': 4,
                     'Most of the time': 3,
                     'Not very often': 2,
-                    'Never': 1
+                    'Never': 1, 
                 })
         except KeyError:
             #print(cntry, item, 'NOT IN DATASET')
-            frames[cntry][item] = np.nan
+            frames[cntry][item] = 'not in dataset'
 
-# make frames with dummies most of the time/all the time=1 frames_d
-dums=[i + '_d' for i in trustitems]
+for item in trustitems: 
+    for cntry in cntrs: 
+        print('-------', item, '-------')
+        print('-------', cntry, '-------')  
+        print(frames[cntry][item].value_counts(dropna=False))
+
+
+# combine traditional and religious leaders in single col. 
+
+for cntry in cntrs:
+    if all(frames[cntry]['cctrust_tradrelileader']=='not in dataset'): 
+        frames[cntry]['cctrust_tradrelileader_m']=frames[cntry][['cctrust_tradleader','cctrust_relileader']].mean(axis=1)
+        print('---',cntry,'---')
+        print(frames[cntry]['cctrust_tradrelileader_m'].value_counts(dropna=False))
+
+
+# make frames with dummies most of the time/all the time=1-->frames_d
+trustitems_a=[ c for c in trustitems if 'cctrust_tradrelileader' not in c]
+
+dums=[i + '_d' for i in trustitems_a]
 
 frames_d = {}
-
 for cntry in cntrs:
     df=frames[cntry]
-    for item, d in zip(trustitems,dums):
-        df[d]=df[item].map({1: 0, 2:0, 3: 1, 4: 1, np.nan:np.nan})
+    for item, d in zip(trustitems_a,dums):
+        df[d]=df[item].map({1: 0, 1.5: 0, 2:0, 2.5:0, 3: 1, 3.5:1, 4: 1, np.nan:np.nan})
     frames_d[cntry] = df.loc[:,dums]
-#make set with total
-totals=pd.DataFrame(columns=dums)
+
+# for d in dums:
+#     for cntry in cntrs:
+#         print('--', cntry,'--')
+#         print(frames_d[cntry][d].value_counts(dropna=False))
+
 for cntry in cntrs:
-    totrow=pd.Series(frames_d[cntry].mean(), name=cntry)
-    totals=totals.append(totrow)
+    if 'cctrust_tradrelileader' in frames[cntry].columns:
+        frames_d[cntry]['cctrust_tradrelileader_d']=frames[cntry]['cctrust_tradrelileader'].map({1: 0, 1.5: 0, 2:0, 2.5:0, 3: 1, 3.5:1, 4: 1, np.nan:np.nan})
+    if 'cctrust_tradrelileader_m' in frames[cntry].columns:
+        frames_d[cntry]['cctrust_tradrelileader_d']=frames[cntry]['cctrust_tradrelileader_m'].map({1: 0, 1.5: 0, 2:0, 2.5:0, 3: 1, 3.5:1, 4: 1, np.nan:np.nan})
+        #add mean to tradrelileader in case this does not occur
+        frames[cntry]['cctrust_tradrelileader']=frames[cntry]['cctrust_tradrelileader_m']
+        # set media to non in opt
+    if cntry=='OPT_f4d':
+        frames[cntry]['cctrust_media']=np.nan
+    
 
-totals.to_excel(data_path/'often_alwaystrust.xls')
+for cntry in cntrs:
+    print('--', cntry,'--')
+    print(frames_d[cntry]['cctrust_tradrelileader_d'].value_counts(dropna=False))
+    print(frames[cntry]['cctrust_tradleader'].value_counts(dropna=False))
+    print(frames[cntry]['cctrust_relileader'].value_counts(dropna=False))
+    print(frames[cntry]['cctrust_tradrelileader'].value_counts(dropna=False))
+    print(frames[cntry]['cctrust_media'].value_counts(dropna=False))
 
-#sortorder
-#check which insitutes have highest trust on average
-sorteditems=list(pd.DataFrame(totals.mean(), columns=['itemavg']).sort_values(by='itemavg', ascending=False).index)
-sortedcntry=list(pd.DataFrame(totals.mean(axis=1), columns=['cntryavg']).sort_values(by='cntryavg', ascending=False).index)
 
-#prep some vars to loop over
-ncols=len(sortedcntry)
-nrows=len(sorteditems)
 
-cntrytitles=dict(zip(sortedcntry,['Niger \n(c & f)',
- 'Uganda\n(f4d)',
- 'Uganda\n(r2f)',
- 'Niger\n(r2f)',
- 'Myanmar\n(r2f)',
- 'OPT\n(f4d)',
- 'Burundi\n(r2f)']))
+vizitems= ['cctrust_localgov',
+    'cctrust_centralgov',
+    'cctrust_internngo',
+    'cctrust_localcso',
+    'cctrust_tradrelileader',
+    'cctrust_media']
 
-itemtitles=dict(zip(
-    sorteditems,
-    ["traditional\nleaders",
-    "religious\nleaders",
-    "comm. \nvolunteers",
-    "local cso's",
-    "international\nngo's",
-    "local gov.",
-    "central gov.",
-    "traditional\n&\nrelig. leaders",
-    "media",
-    "big\ncompanies"]))
+#all items are still category in  should be float
+
+vizitems_d=[c + '_d' for c in vizitems]
+#make set with totals_d = trust all or most of the time
+totals_d=pd.DataFrame(columns=vizitems_d)
+for cntry in cntrs:
+    totrow_d=pd.Series(frames_d[cntry].mean(), name=cntry)
+    totals_d=totals_d.append(totrow_d)
+
+#make set with totals averages
+# replace cctrust_tradrelileader with cctrust_tradrelileader_m if not in dataset. 
+
+vizframes={}
+#make a set with all items to visualise -->data
+for cntry in cntrs:
+    vizframes[cntry]=frames[cntry][vizitems].astype('float64')
+    vizframes[cntry]['country']=cntry
+    print(vizframes[cntry])
+data=pd.concat(vizframes.values(), ignore_index=True)
+
+#make a set with totals and 95 cis
+
+totals_m=data.groupby('country').agg(['mean', 'count', 'sem', lambda lb: sms.DescrStatsW(lb.dropna()).tconfint_mean(alpha=0.05)[0], lambda ub:sms.DescrStatsW(ub.dropna()).tconfint_mean(alpha=0.05)[1]])
+totals_m.columns=totals_m.columns.set_levels(['mean', 'count', 'sem', 'lowerbound', 'upperbound'], level=1)
+
+
+#sortorder items/overall totals (by mean)
+totals_overall=data.agg(['mean', 'count', 'sem']).T.sort_values(by='mean', ascending=False)
+
+#labels for countries
+newlabels=dict(zip(list(totals_m.index),[nlab.replace('_', '\n(')+')' for nlab in totals_m.index]))
+totals_m['labels']=totals_m.index.map(newlabels)
+#labels for items ####################TILL HERE
+# itemtitles=dict(zip(
+#     sorteditems,
+#     ["traditional\nleaders",
+#     "religious\nleaders",
+#     "comm. \nvolunteers",
+#     "local cso's",
+#     "international\nngo's",
+#     "local gov.",
+#     "central gov.",
+#     "traditional\n&\nrelig. leaders",
+#     "media",
+#     "big\ncompanies"]))
 
 #make a list which values to plot and where there's no data. 
 #notna the df, take values, ravel these values, then enumerate so we have indices corresponding with plot locs in plotgrid 
