@@ -4,7 +4,7 @@ Code to reproduce visualisations for quick comparative analyses on trust here <a
 
 # Technologies
 Project is created with: 
-- STATA 13.1
+- Python 3.7.5 (see requirements.txt for packages used)
 
 # Structure
 ```

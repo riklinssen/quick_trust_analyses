@@ -136,3 +136,6 @@ quick_comparative_analyses.code-workspace
 
 .vscode
 
+.gitignore
+.gitattributes
+
