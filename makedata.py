@@ -1,22 +1,13 @@
 import datetime
+import getpass
 import glob
 import os
 import re
-import getpass
 from pathlib import Path, PureWindowsPath, WindowsPath
-import statsmodels.stats.api as sms
-import matplotlib.cm
-import matplotlib.dates as mdates
-import matplotlib.gridspec as gridspec
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mtick
+
 import numpy as np
 import pandas as pd
-import seaborn as sns
-from matplotlib.dates import DateFormatter
-from pandas.api.types import CategoricalDtype
-
+import statsmodels.stats.api as sms
 
 # test run on first files
 base_path = Path.cwd()
@@ -203,103 +194,10 @@ totals_countries = data.groupby('country').mean().mean(
 newlabels = dict(zip(list(totals_m.index), [nlab.replace(
     '_', '\n(')+')' for nlab in totals_m.index]))
 totals_m['labels'] = totals_m.index.map(newlabels)
-#totals_d['labels'] = totals_d.index.map(newlabels)
-
-
-# make lists where institution and cntries are sorted to loop over
-
-institutions_l = list(totals_institutions.index)
-countries_l = list(totals_countries.index)
-# sort frame
-sortordermap = {l: i for i, l in enumerate(countries_l)}
-totals_m['countrysort'] = totals_m.index.map(sortordermap)
-# sort rows
-totals_m.sort_values(by='countrysort', inplace=True)
-# sort cols done by institutions list
-nrows = 1
-ncols = len(institutions_l)
-idx = pd.IndexSlice
-
-# labels for institutions
-itemtitles = ['Traditional\n&\nreligious\nleaders', 'Local\ngovernment',
-              "Local\ncso's", "Int.\nngo's", 'Central\n government', 'Media']
-
-coltitles = {k: title for (k, title) in zip(institutions_l, itemtitles)}
-# set informative rowlabels (countries)
-totals_m.set_index(totals_m['labels'], inplace=True)
+totals_d['labels'] = totals_d.index.map(newlabels)
 
 #export data
-totals_m.to_csv(data_path/'trust_avg_by_inst_cntry.csv')
-# missings to max value of scale solve later
-
-#totals_m.fillna(4, inplace=True)
-# Oxfam colors
-hex_values = ['#E70052',  # rood
-              '#F16E22',  # oranje
-              '#E43989',  # roze
-              '#630235',  # Bordeax
-              '#61A534',  # oxgroen
-              '#53297D',  # paars
-              '#0B9CDA',  # blauw
-              '#0C884A'  # donkergroen
-              ]
-colornames = hex_values[1:-1]
-
-####################plot: Institutions (average)
-fig, ax = plt.subplots(nrows=nrows, ncols=ncols,
-                       sharey='row', figsize=(6, 5.5))
-axs = fig.axes
-# averages
-for i, (inst, color) in enumerate(zip(institutions_l, colornames)):
-    means = totals_m.loc[:, idx[inst, 'mean']]
-    axs[i].scatter(y=means.index, x=means,  color=color, clip_on=False)
-# spines
-    axs[i].spines['left'].set_position(('outward', 1))
-    axs[i].spines['bottom'].set_position(('outward', 5))
-    axs[i].spines['right'].set_visible(False)
-    axs[i].spines['top'].set_visible(False)
-# titles
-    axs[i].set_title(coltitles[inst], size=9, color=color)
-# x-axis
-    axs[i].set_xlim(1, 4)
-    axs[i].set_xticks([i+1 for i in range(4)])
-    xlabels = ['never-1', '2', '3', 'always-4']
-    axs[i].set_xticklabels(xlabels, size='small', rotation=80)
-# y-axis
-    axs[i].tick_params(axis='y', which='both', length=0)
-# grid
-    axs[i].yaxis.grid(linestyle='dotted', color='gray')
-#yticklabels
-for tick in axs[0].yaxis.get_major_ticks():
-    tick.label.set_fontsize(9)
-    tick.label.set_fontweight('bold') 
-
-# titles
-fig.suptitle("Trust in institutions, by project", y=1.1,
-             fontsize='x-large', horizontalalignment='right')
-
-plt.figtext(s="Question: How often do you trust [institution] to do the right thing?\n(1-never-2-Not very often-3-most of the time-4-always)\nData collected Oct-2010, Feb. 2020\nDots represent average by country-project and institution",
-            size='medium', color='gray', x=0, y=0.95, horizontalalignment='left')
-# footnote
-plt.figtext(s="Source: Oxfam Novib: SP-surveys on citizens' voice, n=6413\nNo data available for OPT-trust in media",
-            size='small', x=0, y=0.1, color='grey')
-plt.subplots_adjust(bottom=0.3, top=0.8)
-fig.savefig(graphs_path/'Trust_averages.svg')
-
-
-
-#####plot by cntry
-#transpose totals_d for easy sorting &labeling
-totals_d
-totals_perc=totals_d[vizitems_d]
-
-nrows=2
-ncols=4
-fig, ax = plt.subplots(nrows=nrows, ncols=ncols,
-                       sharey='row', figsize=(6, 6*1.61))
-axs = fig.axes
-# averages
-for i, (cnt, color) in enumerate(zip(countries_l, colornames)):
-    means = totals_d.loc[cnt]
-    axs[i].scatter(y=means.index, x=means,  color=color, clip_on=False)
+totals_m.to_hdf(data_path/'trust_avg_by_inst_cntry.h5', key='totals_m')
+totals_d.to_hdf(data_path/"trust_inst_cntry_perc.h5", key='totals_d')
+data.to_hdf(data_path/"trust_data.h5", key='trust_data_individ')
 
