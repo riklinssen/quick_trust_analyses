@@ -127,7 +127,7 @@ plt.figtext(s = "Question: How often do you trust [institution] to do the right 
 plt.figtext(s = "Source: Oxfam Novib: SP-surveys on citizens' voice, n=6413\nTrust in traditional and religious leaders was seperated for all countries except Uganda.\nValues represent the mean of trust in traditional and trust in religious leaders.\nNo data available for OPT-trust in media",
             size = 'small', x = 0, y = 0, color='grey')
 plt.subplots_adjust(bottom = 0.3, top = 0.8)
-fig.savefig(graphs_path/'Trust_averages.svg')
+fig.savefig(graphs_path/'Trust_averages.pdf', bbox_inches='tight')
 
 
 
@@ -136,14 +136,67 @@ fig.savefig(graphs_path/'Trust_averages.svg')
 
 totals_perc=totals_d[vizitems_d].T
 #labels replace newline chars
-instlabels={k + '_d': v.replace('\n', " ") for k,v in coltitles.items()}
+instlabels={k + '_d': v.replace('\n', ' ') for k,v in coltitles.items()}
 totals_perc['instlabels']=totals_perc.index.map(instlabels)
-nrows=2
-ncols=4
-fig, ax=plt.subplots(nrows = nrows, ncols = ncols,
-                       sharey = 'row', figsize = (6, 6*1.61))
+totals_perc.set_index('instlabels', inplace=True)
+#neat country labels
+cntrylabels = dict(zip(list(totals_perc.columns), [
+    nlab.replace('_', '\n(')+')' for nlab in list(totals_perc.columns)]
+    ))
+
+#reverse the country list so that highest scoring cntrys plotted first. 
+countries_l_r=countries_l[::-1]
+
+nrows=8
+ncols=1
+fig, ax=plt.subplots(nrows = nrows, ncols = ncols, sharex='col', figsize=(6, 18))
 axs=fig.axes
-# averages
-for i, (cnt, color) in enumerate(zip(countries_l, colornames)):
-    means=totals_perc.loc[cnt]
-    axs[i].scatter(y = means.index, x = means,  color = color, clip_on=False)
+# percentages
+for i, (cnt, color) in enumerate(zip(countries_l_r, hex_values)):
+    
+    means=totals_perc.loc[:,cnt].sort_values(ascending=True)
+    axs[i].barh(y = means.index, width = means, height=0.5, color = color, clip_on=False)
+#plot labels
+    bars=[rect for rect in axs[i].get_children() if isinstance(rect, mpatches.Rectangle)]
+    for bar in bars: 
+        width=bar.get_width()
+        percentage="{:.0%}".format(round(width,2))
+        offset=0.03
+        axs[i].text(width+offset, bar.get_y(), percentage, color=bar.get_facecolor(), size='small')
+# x-axis
+    axs[i].set_xlim(0, 1)
+    axs[i].xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
+
+# spines & ticks
+    axs[i].spines['left'].set_position(('outward', 1))
+    axs[i].spines['bottom'].set_position(('outward', 5))
+    axs[i].spines['right'].set_visible(False)
+    if  i < 7:
+        axs[i].spines['bottom'].set_visible(False)
+        axs[i].spines['top'].set_visible(False)
+        axs[i].tick_params(axis = 'x', which = 'major', length = 0)
+    if i==7:
+        axs[i].spines['top'].set_visible(False)
+        axs[i].spines['bottom'].set_visible(True)
+        axs[i].tick_params(axis = 'x', which = 'major', length = 2)
+
+    
+# subplottitles
+    axs[i].set_title(cntrylabels[cnt], size = 'medium', color = color)
+
+    #axs[i].set_xticklabels(xlabels, size = 'small', rotation = 80)
+# grid
+    axs[i].xaxis.grid(linestyle = 'dotted', color = 'gray')
+
+# titles
+fig.suptitle("Which insitutions are trusted most?\nRanking of often/always trusted institutions, by project", x=-0.16,y = 1.3,fontsize = 'x-large', horizontalalignment = 'left')
+plt.figtext(s = "Question: How often do you trust [institution] to do the right thing?\n(1-never-2-Not very often-3-most of the time-4-always)\nData collected Oct-2010, Feb. 2020\nDots represent share of people by country-project\nthat trust institution most of the time or always",
+            size = 'medium', color = 'gray', x = -0.16, y=1.23, horizontalalignment='left')
+# footnote
+plt.figtext(s = "Source: Oxfam Novib: SP-surveys on citizens' voice, n=6413\nTrust in traditional and religious leaders was seperated for all countries except Uganda.\nValues represent the mean of trust in traditional and trust in religious leaders.\nNo data available for OPT-trust in media",
+            size = 'small', x = -0.16, y = 0, color='grey')
+
+plt.subplots_adjust(bottom = 0.05, top =1.2, wspace=0.5, left=0.2)
+
+plt.show()
+fig.savefig(graphs_path/'Trust_ranking_by_all_cntry.pdf', bbox_inches='tight')
