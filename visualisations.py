@@ -121,7 +121,7 @@ for tick in axs[0].yaxis.get_major_ticks():
 # titles
 fig.suptitle("Trust in institutions, by project", y = 1.1,fontsize = 'x-large', horizontalalignment = 'right')
 
-plt.figtext(s = "Question: How often do you trust [institution] to do the right thing?\n(1-never-2-Not very often-3-most of the time-4-always)\nData collected Oct-2010, Feb. 2020\nDots represent average by country-project and institution",
+plt.figtext(s = "Question: How often do you trust [institution] to do the right thing?\n1-never (left)-2-not very often-3-most of the time-4-always (right)\nData collected Oct-2010, Feb. 2020\nDots represent average by country-project and institution",
             size = 'medium', color = 'gray', x = 0, y=0.95, horizontalalignment='left')
 # footnote
 plt.figtext(s = "Source: Oxfam Novib: SP-surveys on citizens' voice, n=6413\nTrust in traditional and religious leaders was seperated for all countries except Uganda.\nValues represent the mean of trust in traditional and trust in religious leaders.\nNo data available for OPT-trust in media",
