@@ -55,7 +55,6 @@ print('--', 'Burundi r2f', '--')
 print(frames['Burundi_r2f']['cctrust_localcso'].value_counts(dropna=False))
 
 
-len(frames['Burundi_r2f']['cctrust_localcso'])
 #-- Burundi r2f --
 # 1. All the time         20
 # 2. Most of the time     44

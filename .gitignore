@@ -130,6 +130,8 @@ dmypy.json
 !/graphs/.keep
 /data/*
 !/data/.keep
+!/data/links.csv
+
 #workspace & vscode
 
 quick_comparative_analyses.code-workspace
