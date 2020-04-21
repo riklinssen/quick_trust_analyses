@@ -51,6 +51,29 @@ for f, cntry in zip(filelist, files.name):
 
     frames[cntry] = df
 
+print('--', 'Burundi r2f', '--')
+print(frames['Burundi_r2f']['cctrust_localcso'].value_counts(dropna=False))
+
+
+len(frames['Burundi_r2f']['cctrust_localcso'])
+#-- Burundi r2f --
+# 1. All the time         20
+# 2. Most of the time     44
+# 3. Not very often      252
+# 4. Never               568
+# 88. Don't know         104
+# Name: cctrust_localcso, dtype: int64
+
+#   --- Burundi R2F---
+# 1. All the time         20    0.0226
+# 2. Most of the time     44    0.0452   
+# 3. Not very often      252    0.2851
+# 4. Never               568    0.6418    
+#                       ----
+#                        884    1
+# Don't know             104
+
+
 # cambodia gets \t after each item remove that:
 for c in dataoverview['Cambodia_r2f']:
     print(frames['Cambodia_r2f'][c].value_counts(dropna=False))
