@@ -27,21 +27,32 @@ trustvars = []
 for f, cntry in zip(filelist, files.name):
     checkcols = pd.read_stata(Path(f))
     cntrs.append(cntry)
-    cols = [c for c in checkcols.columns if 'cctrust' in c or 'period' in c]
+    cols = [c for c in checkcols.columns if 'cctrust' in c or 'period' in c or 'endline' in c]
     cols2 = [c for c in cols if 'out_' not in c]
     trustvars.append(cols2)
 dataoverview = dict(zip(cntrs, trustvars))
 
+#check if period is in values
+print([cntr for cntr, col in dataoverview.items() if 'period' not in col])
+
+
+#vietnam has no trust data REMOVED FROM FILELIST 
 # make a dict of frames
 frames = {}
 
 for f, cntry in zip(filelist, files.name):
     df = pd.read_stata(Path(f), columns=list(dataoverview[cntry]))
     # keep endline only
-    if cntry not in ['Myanmar_r2f', 'Cambodia_r2f']:    # mya has endline data only
+    if cntry not in ['Cambodia_r2f', 'Myanmar_r2f']: #mya and cam do not have period var
         ids = df[df['period'].cat.codes == 0].index
         df.drop(ids, inplace=True)
-   # rename Burundi federal government.
+    if cntry == 'Myanmar_r2f': #mya and cam only endline no period col
+        ids=df[df['endline'].cat.codes==0].index
+        df.drop(ids, inplace=True)
+    if cntry == 'Cambodia_r2f': #cam only endline b
+        ids=df[df['endline']==0].index
+        df.drop(ids, inplace=True)
+      # rename Burundi federal government.
     if cntry == 'Burundi_r2f':
         df = df.rename(columns={'cctrust_federalgov': 'cctrust_centralgov'})
     # rename cultural leaders in Uganda drop empty cols for tradrelileaders
@@ -51,8 +62,6 @@ for f, cntry in zip(filelist, files.name):
 
     frames[cntry] = df
 
-print('--', 'Burundi r2f', '--')
-print(frames['Burundi_r2f']['cctrust_localcso'].value_counts(dropna=False))
 
 
 #-- Burundi r2f --
@@ -73,11 +82,6 @@ print(frames['Burundi_r2f']['cctrust_localcso'].value_counts(dropna=False))
 # Don't know             104
 
 
-# cambodia gets \t after each item remove that:
-for c in dataoverview['Cambodia_r2f']:
-    print(frames['Cambodia_r2f'][c].value_counts(dropna=False))
-    frames['Cambodia_r2f'][c] = frames['Cambodia_r2f'][c].str.replace("\t", "")
-    print(frames['Cambodia_r2f'][c].value_counts(dropna=False))
 
 
 trustitems = [
@@ -91,6 +95,24 @@ trustitems = [
     'cctrust_relileader',
     'cctrust_commvolun',
     'cctrust_media']
+
+for item in trustitems:
+    for cntry in cntrs:
+        try:
+            print('----', cntry,'----')
+            print(frames[cntry][item].value_counts(dropna=False))
+        except KeyError:
+            print('----', cntry,'----')
+            print('----', item,'----')
+            print('----', 'not in data','----')
+
+# cambodia gets \t after each item remove that:
+camvars=[c for c in frames['Cambodia_r2f'].columns if 'cctrust_' in c]
+for c in camvars:
+    print(frames['Cambodia_r2f'][c].value_counts(dropna=False))
+    frames['Cambodia_r2f'][c] = frames['Cambodia_r2f'][c].str.replace("\t", "")
+    print(frames['Cambodia_r2f'][c].value_counts(dropna=False))
+
 
 for cntry in cntrs:
     for item in trustitems:
@@ -179,6 +201,8 @@ vizitems = ['cctrust_localgov',
             'cctrust_tradrelileader',
             'cctrust_media']
 
+
+
 # all items are still category in  should be float
 
 vizitems_d = [c + '_d' for c in vizitems]
@@ -190,6 +214,17 @@ for cntry in cntrs:
 
 # make set with totals averages
 # replace cctrust_tradrelileader with cctrust_tradrelileader_m if not in dataset.
+
+
+for item in vizitems: 
+    for cntr in cntrs: 
+        print('-------', item, '-------')
+        print('-------', cntry, '-------')
+        print(frames[cntry][item].value_counts(dropna=False))
+
+#missing for media opti
+frames['OPTI_f4d']['cctrust_media']=np.nan
+
 
 vizframes = {}
 # make a set with all items to visualise -->data
@@ -219,7 +254,7 @@ totals_m['labels'] = totals_m.index.map(newlabels)
 totals_d['labels'] = totals_d.index.map(newlabels)
 
 #export data
-totals_m.to_hdf(data_path/'trust_avg_by_inst_cntry.h5', key='totals_m')
-totals_d.to_hdf(data_path/"trust_inst_cntry_perc.h5", key='totals_d')
-data.to_hdf(data_path/"trust_data.h5", key='trust_data_individ')
+totals_m.to_hdf(data_path/'trust_avg_by_inst_cntry_compsets.h5', key='totals_m')
+totals_d.to_hdf(data_path/"trust_inst_cntry_perc_compsets.h5", key='totals_d')
+data.to_hdf(data_path/"trust_data_compsets.h5", key='trust_data_individ')
 
